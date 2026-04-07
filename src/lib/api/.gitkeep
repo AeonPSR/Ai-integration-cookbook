@@ -1,0 +1,2 @@
+// LLM API client wrappers will live here.
+// One file per provider: openai.ts, anthropic.ts, mistral.ts
