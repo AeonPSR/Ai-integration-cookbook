@@ -1,0 +1,89 @@
+---
+title: "Code Generation"
+slug: "code-generation"
+description: "Generate working code from a natural language description."
+category: "code"
+difficulty: "intermediate"
+models: ["gpt-4", "claude-3"]
+tags: ["code", "generation", "programming"]
+estimatedCostPer1kTokens: 0.03
+---
+
+## What This Does
+
+Converts a plain English description into working code in a specified language. Useful for prototyping, boilerplate generation, algorithm implementation, and learning.
+
+## Code
+
+### Python
+
+```python
+import openai
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+def generate_code(description, language="python"):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": f"You are a senior {language} developer. Generate clean, working code for the given task. Include brief comments. Return only the code block, no explanation."},
+            {"role": "user", "content": description}
+        ],
+        temperature=0.2
+    )
+    return response.choices[0].message.content
+
+code = generate_code("A function that validates email addresses using regex")
+print(code)
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+async function generateCode(description, language = "javascript") {
+  const response = await client.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: `You are a senior ${language} developer. Generate clean, working code for the given task. Include brief comments. Return only the code block, no explanation.` },
+      { role: "user", content: description },
+    ],
+    temperature: 0.2,
+  });
+  return response.choices[0].message.content;
+}
+
+const code = await generateCode("A function that validates email addresses using regex");
+console.log(code);
+```
+
+### curl
+
+```bash
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {"role": "system", "content": "You are a senior python developer. Generate clean, working code for the given task. Include brief comments. Return only the code block, no explanation."},
+      {"role": "user", "content": "A function that validates email addresses using regex"}
+    ],
+    "temperature": 0.2
+  }'
+```
+
+## How It Works
+
+1. The system prompt sets the role as a developer in the target language
+2. "Return only the code block" prevents conversational filler
+3. Low temperature (0.2) favors correct, conventional code over creative alternatives
+
+## Tips
+
+- Always review and test generated code before using in production
+- Include constraints in the description: "no external dependencies", "handle edge cases"
+- For complex tasks, describe the function signature and expected input/output explicitly

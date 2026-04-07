@@ -1,0 +1,91 @@
+---
+title: "Sentiment Analysis"
+slug: "sentiment-analysis"
+description: "Detect the emotional tone of text — positive, negative, or neutral."
+category: "text"
+difficulty: "beginner"
+models: ["gpt-4", "claude-3", "mistral-large"]
+tags: ["text", "sentiment", "analysis"]
+estimatedCostPer1kTokens: 0.03
+---
+
+## What This Does
+
+Analyzes text and returns a sentiment label (positive, negative, neutral) with an optional confidence score. Great for review analysis, social media monitoring, customer feedback processing.
+
+## Code
+
+### Python
+
+```python
+import openai
+import json
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+def analyze_sentiment(text):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": 'Analyze the sentiment of the following text. Return JSON: {"sentiment": "positive"|"negative"|"neutral", "confidence": 0.0-1.0}. Return only valid JSON.'},
+            {"role": "user", "content": text}
+        ],
+        temperature=0
+    )
+    return json.loads(response.choices[0].message.content)
+
+result = analyze_sentiment("This product is absolutely fantastic, best purchase I've made all year!")
+print(result)
+# {"sentiment": "positive", "confidence": 0.95}
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+async function analyzeSentiment(text) {
+  const response = await client.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: 'Analyze the sentiment of the following text. Return JSON: {"sentiment": "positive"|"negative"|"neutral", "confidence": 0.0-1.0}. Return only valid JSON.' },
+      { role: "user", content: text },
+    ],
+    temperature: 0,
+  });
+  return JSON.parse(response.choices[0].message.content);
+}
+
+const result = await analyzeSentiment("Terrible experience, would not recommend.");
+console.log(result); // {"sentiment": "negative", "confidence": 0.92}
+```
+
+### curl
+
+```bash
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {"role": "system", "content": "Analyze the sentiment of the following text. Return JSON: {\"sentiment\": \"positive\"|\"negative\"|\"neutral\", \"confidence\": 0.0-1.0}. Return only valid JSON."},
+      {"role": "user", "content": "This product is absolutely fantastic!"}
+    ],
+    "temperature": 0
+  }'
+```
+
+## How It Works
+
+1. System prompt constrains output to a fixed JSON schema with known values
+2. Confidence score gives a sense of how clear the sentiment is
+3. Temperature 0 ensures reproducible results across identical inputs
+
+## Tips
+
+- For nuanced analysis, expand labels: "very positive", "somewhat negative", etc.
+- Batch multiple texts in one call to reduce API round-trips
+- For mixed-sentiment text, ask the model to analyze sentence by sentence

@@ -1,0 +1,92 @@
+---
+title: "Entity Extraction (NER)"
+slug: "entity-extraction"
+description: "Extract named entities like people, places, and dates from text."
+category: "text"
+difficulty: "intermediate"
+models: ["gpt-4", "claude-3"]
+tags: ["text", "ner", "extraction", "entities"]
+estimatedCostPer1kTokens: 0.03
+---
+
+## What This Does
+
+Identifies and extracts structured entities (names, dates, locations, organizations, amounts) from unstructured text. Useful for parsing emails, invoices, legal documents, or news articles.
+
+## Code
+
+### Python
+
+```python
+import openai
+import json
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+def extract_entities(text):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Extract all named entities from the text. Return a JSON object with keys: persons, organizations, locations, dates, amounts. Each key maps to an array of strings. Return only valid JSON."},
+            {"role": "user", "content": text}
+        ],
+        temperature=0
+    )
+    return json.loads(response.choices[0].message.content)
+
+text = "On January 15, 2024, Acme Corp announced that CEO Jane Smith would open a new office in Berlin, with a budget of $2.5 million."
+entities = extract_entities(text)
+print(entities)
+# {"persons": ["Jane Smith"], "organizations": ["Acme Corp"], "locations": ["Berlin"], "dates": ["January 15, 2024"], "amounts": ["$2.5 million"]}
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+async function extractEntities(text) {
+  const response = await client.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: "Extract all named entities from the text. Return a JSON object with keys: persons, organizations, locations, dates, amounts. Each key maps to an array of strings. Return only valid JSON." },
+      { role: "user", content: text },
+    ],
+    temperature: 0,
+  });
+  return JSON.parse(response.choices[0].message.content);
+}
+
+const entities = await extractEntities("On January 15, 2024, Acme Corp announced...");
+console.log(entities);
+```
+
+### curl
+
+```bash
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {"role": "system", "content": "Extract all named entities from the text. Return a JSON object with keys: persons, organizations, locations, dates, amounts. Each key maps to an array of strings. Return only valid JSON."},
+      {"role": "user", "content": "On January 15, 2024, Acme Corp announced that CEO Jane Smith would open a new office in Berlin."}
+    ],
+    "temperature": 0
+  }'
+```
+
+## How It Works
+
+1. The system prompt defines the exact JSON schema expected
+2. "Return only valid JSON" prevents conversational wrapping
+3. Temperature 0 ensures consistent, deterministic extraction
+
+## Tips
+
+- Always wrap `JSON.parse` in try/catch — the model can occasionally return malformed JSON
+- For complex documents, process paragraph by paragraph and merge results
+- Use GPT-4's JSON mode (`response_format: { type: "json_object" }`) for more reliable JSON output

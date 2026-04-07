@@ -1,0 +1,90 @@
+---
+title: "Translation"
+slug: "translation"
+description: "Translate text between languages while preserving tone and context."
+category: "text"
+difficulty: "beginner"
+models: ["gpt-4", "claude-3", "mistral-large"]
+tags: ["text", "translation", "language", "i18n"]
+estimatedCostPer1kTokens: 0.03
+---
+
+## What This Does
+
+Translates text from one language to another while preserving meaning, tone, and context. Unlike basic translation APIs, LLMs handle idioms, formal/informal register, and domain-specific terminology well.
+
+## Code
+
+### Python
+
+```python
+import openai
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+def translate(text, target_language, tone="neutral"):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": f"Translate the following text to {target_language}. Maintain the original tone ({tone}). Return only the translation, no explanation."},
+            {"role": "user", "content": text}
+        ],
+        temperature=0.3
+    )
+    return response.choices[0].message.content
+
+result = translate("The quick brown fox jumps over the lazy dog.", "French")
+print(result)
+# "Le rapide renard brun saute par-dessus le chien paresseux."
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+async function translate(text, targetLanguage, tone = "neutral") {
+  const response = await client.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: `Translate the following text to ${targetLanguage}. Maintain the original tone (${tone}). Return only the translation, no explanation.` },
+      { role: "user", content: text },
+    ],
+    temperature: 0.3,
+  });
+  return response.choices[0].message.content;
+}
+
+const result = await translate("Hello, how are you?", "Spanish");
+console.log(result); // "Hola, ¿cómo estás?"
+```
+
+### curl
+
+```bash
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {"role": "system", "content": "Translate the following text to French. Maintain the original tone. Return only the translation."},
+      {"role": "user", "content": "The quick brown fox jumps over the lazy dog."}
+    ],
+    "temperature": 0.3
+  }'
+```
+
+## How It Works
+
+1. System prompt specifies target language and tone preservation
+2. Moderate temperature (0.3) allows natural phrasing while staying accurate
+3. "Return only the translation" eliminates conversational preamble
+
+## Tips
+
+- Specify domain context for technical text: "Translate this medical report to German"
+- For formal documents, set tone to "formal" explicitly
+- Translate in batches (one paragraph per call) for long documents to maintain consistency

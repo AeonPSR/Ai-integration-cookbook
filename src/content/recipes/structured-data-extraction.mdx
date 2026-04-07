@@ -1,0 +1,118 @@
+---
+title: "Structured Data Extraction"
+slug: "structured-data-extraction"
+description: "Extract structured JSON data from unstructured text like invoices or emails."
+category: "data"
+difficulty: "intermediate"
+models: ["gpt-4", "claude-3"]
+tags: ["data", "json", "extraction", "parsing"]
+estimatedCostPer1kTokens: 0.03
+---
+
+## What This Does
+
+Parses unstructured text (emails, invoices, forms, documents) and extracts structured data in a predefined JSON schema. Eliminates manual data entry for repetitive document processing.
+
+## Code
+
+### Python
+
+```python
+import openai
+import json
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+SCHEMA = {
+    "vendor": "string",
+    "invoice_number": "string",
+    "date": "YYYY-MM-DD",
+    "line_items": [{"description": "string", "quantity": "number", "price": "number"}],
+    "total": "number"
+}
+
+def extract_invoice(text):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": f"Extract invoice data from the text. Return JSON matching this schema: {json.dumps(SCHEMA)}. Return only valid JSON."},
+            {"role": "user", "content": text}
+        ],
+        temperature=0
+    )
+    return json.loads(response.choices[0].message.content)
+
+invoice_text = """
+Invoice #INV-2024-0042
+From: Acme Supplies Ltd
+Date: March 15, 2024
+
+2x Widget Pro - $49.99 each
+1x Cable Kit - $12.50
+Shipping: $8.00
+
+Total: $120.48
+"""
+
+data = extract_invoice(invoice_text)
+print(json.dumps(data, indent=2))
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+const SCHEMA = {
+  vendor: "string",
+  invoice_number: "string",
+  date: "YYYY-MM-DD",
+  line_items: [{ description: "string", quantity: "number", price: "number" }],
+  total: "number",
+};
+
+async function extractInvoice(text) {
+  const response = await client.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: `Extract invoice data from the text. Return JSON matching this schema: ${JSON.stringify(SCHEMA)}. Return only valid JSON.` },
+      { role: "user", content: text },
+    ],
+    temperature: 0,
+  });
+  return JSON.parse(response.choices[0].message.content);
+}
+
+const data = await extractInvoice("Invoice #INV-2024-0042 From: Acme Supplies...");
+console.log(data);
+```
+
+### curl
+
+```bash
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {"role": "system", "content": "Extract invoice data from the text. Return JSON with keys: vendor, invoice_number, date, line_items, total. Return only valid JSON."},
+      {"role": "user", "content": "Invoice #INV-2024-0042\nFrom: Acme Supplies Ltd\nDate: March 15, 2024\n2x Widget Pro - $49.99 each\nTotal: $120.48"}
+    ],
+    "temperature": 0
+  }'
+```
+
+## How It Works
+
+1. Provide the exact JSON schema you want in the system prompt
+2. The model maps unstructured fields to your schema keys
+3. Temperature 0 ensures consistent, parseable output
+
+## Tips
+
+- Use GPT-4's JSON mode for guaranteed valid JSON: `response_format: { type: "json_object" }`
+- Add example output in the system prompt for complex schemas
+- Validate extracted data against your schema before saving — catch malformed responses

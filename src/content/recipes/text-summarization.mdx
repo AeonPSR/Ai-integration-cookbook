@@ -1,0 +1,89 @@
+---
+title: "Text Summarization"
+slug: "text-summarization"
+description: "Condense long text into key points using an LLM."
+category: "text"
+difficulty: "beginner"
+models: ["gpt-4", "claude-3", "mistral-large"]
+tags: ["text", "summarization", "nlp"]
+estimatedCostPer1kTokens: 0.03
+---
+
+## What This Does
+
+Takes a long piece of text and returns a concise summary preserving the key information. Useful for processing articles, documents, support tickets, or any content where readers need the gist quickly.
+
+## Code
+
+### Python
+
+```python
+import openai
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+def summarize(text, max_sentences=3):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": f"Summarize the following text in {max_sentences} sentences or fewer. Be concise and preserve key facts."},
+            {"role": "user", "content": text}
+        ],
+        temperature=0.3
+    )
+    return response.choices[0].message.content
+
+result = summarize("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.")
+print(result)
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+async function summarize(text, maxSentences = 3) {
+  const response = await client.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: `Summarize the following text in ${maxSentences} sentences or fewer. Be concise and preserve key facts.` },
+      { role: "user", content: text },
+    ],
+    temperature: 0.3,
+  });
+  return response.choices[0].message.content;
+}
+
+const result = await summarize("Lorem ipsum dolor sit amet...");
+console.log(result);
+```
+
+### curl
+
+```bash
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {"role": "system", "content": "Summarize the following text in 3 sentences or fewer."},
+      {"role": "user", "content": "Lorem ipsum dolor sit amet..."}
+    ],
+    "temperature": 0.3
+  }'
+```
+
+## How It Works
+
+1. The system prompt instructs the model to summarize, constraining output length
+2. Low temperature (0.3) keeps the output factual and deterministic
+3. The model identifies key points and compresses them into the requested format
+
+## Tips
+
+- Lower temperature = more factual, higher = more creative rephrasing
+- For very long inputs, chunk the text and summarize each chunk, then summarize the summaries
+- Add "in bullet points" to the system prompt if you prefer structured output

@@ -13,6 +13,7 @@
 title: "Text Summarization"
 slug: "text-summarization"
 description: "Condense long text into key points using an LLM."
+category: "text"                 # text | vision | code | data | audio | agents
 difficulty: "beginner"           # beginner | intermediate | advanced
 models: ["gpt-4", "claude-3", "mistral-large"]
 tags: ["text", "summarization", "nlp"]

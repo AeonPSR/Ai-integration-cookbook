@@ -1,0 +1,92 @@
+---
+title: "Text Classification"
+slug: "text-classification"
+description: "Classify text into predefined categories using an LLM."
+category: "text"
+difficulty: "beginner"
+models: ["gpt-4", "claude-3", "mistral-large"]
+tags: ["text", "classification", "labeling"]
+estimatedCostPer1kTokens: 0.03
+---
+
+## What This Does
+
+Takes a piece of text and assigns it to one or more predefined categories. Common uses: support ticket routing, content moderation, email sorting, intent detection.
+
+## Code
+
+### Python
+
+```python
+import openai
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+CATEGORIES = ["billing", "technical", "account", "general"]
+
+def classify(text, categories=CATEGORIES):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": f"Classify the following text into exactly one of these categories: {', '.join(categories)}. Reply with only the category name."},
+            {"role": "user", "content": text}
+        ],
+        temperature=0
+    )
+    return response.choices[0].message.content.strip().lower()
+
+result = classify("I can't log into my account and my password reset isn't working")
+print(result)  # "account"
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+const CATEGORIES = ["billing", "technical", "account", "general"];
+
+async function classify(text, categories = CATEGORIES) {
+  const response = await client.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: `Classify the following text into exactly one of these categories: ${categories.join(", ")}. Reply with only the category name.` },
+      { role: "user", content: text },
+    ],
+    temperature: 0,
+  });
+  return response.choices[0].message.content.trim().toLowerCase();
+}
+
+const result = await classify("I can't log into my account");
+console.log(result); // "account"
+```
+
+### curl
+
+```bash
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {"role": "system", "content": "Classify the following text into exactly one of these categories: billing, technical, account, general. Reply with only the category name."},
+      {"role": "user", "content": "I can not log into my account and my password reset is not working"}
+    ],
+    "temperature": 0
+  }'
+```
+
+## How It Works
+
+1. System prompt lists the valid categories, forcing the model to pick one
+2. Temperature 0 makes output fully deterministic
+3. The instruction "reply with only the category name" ensures clean, parseable output
+
+## Tips
+
+- Add a "other" category as a catch-all to avoid forced misclassification
+- For multi-label classification, change the prompt to "list all applicable categories"
+- Validate the response against your known categories — LLMs can hallucinate new ones
