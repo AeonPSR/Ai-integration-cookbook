@@ -22,6 +22,12 @@ export default async function CategoryPage({ params }) {
 
   return (
     <div>
+      <nav className="mb-4 text-sm text-gray-500">
+        <a href="/" className="hover:text-gray-900">Home</a>
+        <span className="mx-1">/</span>
+        <span>{category.label}</span>
+      </nav>
+
       <div className="mb-6">
         <span className="text-3xl">{category.icon}</span>
         <h2 className="mt-2 text-2xl font-semibold">{category.label}</h2>
