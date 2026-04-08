@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+
+  --primary: #2563EB;
+  --slate-gray-: #64748B;
+  --light-gray: #E5E7EB;
+  --dark-gray: #464646;
+}
+
+
+.link-gray{
+  @apply text-[#64748B] p-2 px-3 font-medium ;
+}
+
+.link-gray:hover {
+  @apply bg-[#2563EB] text-white p-2 px-3 font-medium rounded-xl;
+}
+
+
