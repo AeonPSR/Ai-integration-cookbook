@@ -24,6 +24,7 @@ export function NavBar() {
               </Link>
             </li>
           ))}
+          <li><Link href="/cost-estimator" className="link-gray">Cost Estimator</Link></li>
         </ul>
 
         <button 
@@ -48,15 +49,20 @@ export function NavBar() {
           </li>
           {CATEGORIES.map((cat) => (
             <li key={cat.id}>
-              <Link 
-                href={`/categories/${cat.id}`} 
+              <Link
+                href={`/categories/${cat.id}`}
                 className="link-gray block text-lg"
-                onClick={() => setIsOpen(false)} 
+                onClick={() => setIsOpen(false)}
               >
                 {cat.label}
               </Link>
             </li>
           ))}
+          <li>
+            <Link href="/cost-estimator" className="link-gray block text-lg" onClick={() => setIsOpen(false)}>
+              Cost Estimator
+            </Link>
+          </li>
         </ul>
       </div>
     </nav>

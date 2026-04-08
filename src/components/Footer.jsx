@@ -44,6 +44,11 @@ export function Footer() {
                   Contact
                 </Link>
               </li>
+              <li>
+                <Link href="/cost-estimator" className="link-gray transition-colors text-sm">
+                  Cost Estimator
+                </Link>
+              </li>
             </ul>
           </div>
 
