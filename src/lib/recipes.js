@@ -77,6 +77,42 @@ export const RECIPES = [
     models: ["gpt-4", "claude-3", "mistral-large"],
     tags: ["text", "translation", "language", "i18n"],
   },
+  {
+    slug: "audio-transcription",
+    title: "Audio Transcription",
+    description: "Convert spoken audio into accurate text using a speech-to-text model.",
+    category: "audio",
+    difficulty: "beginner",
+    models: ["whisper-1"],
+    tags: ["audio", "speech-to-text", "transcription", "whisper"],
+  },
+  {
+    slug: "tool-use-agent",
+    title: "Tool Use Agent",
+    description: "Build an LLM agent that calls external tools to answer questions it can't solve from memory alone.",
+    category: "agents",
+    difficulty: "advanced",
+    models: ["gpt-4o", "claude-3-5-sonnet", "mistral-large"],
+    tags: ["agents", "tool-use", "function-calling", "autonomous"],
+  },
+  {
+    slug: "chatbot-conversational",
+    title: "Chatbot / Conversational",
+    description: "Build a multi-turn conversational assistant that maintains context across messages.",
+    category: "text",
+    difficulty: "advanced",
+    models: ["gpt-4o", "claude-3-5-sonnet", "mistral-large"],
+    tags: ["text", "chatbot", "conversation", "multi-turn", "memory"],
+  },
+  {
+    slug: "rag",
+    title: "RAG (Retrieval-Augmented Generation)",
+    description: "Answer questions grounded in your own documents by combining vector search with an LLM.",
+    category: "data",
+    difficulty: "advanced",
+    models: ["gpt-4o", "claude-3-5-sonnet"],
+    tags: ["data", "rag", "retrieval", "embeddings", "vector-search", "knowledge-base"],
+  },
 ];
 
 /**

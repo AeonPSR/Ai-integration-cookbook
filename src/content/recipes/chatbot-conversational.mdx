@@ -1,0 +1,228 @@
+---
+title: "Chatbot / Conversational"
+slug: "chatbot-conversational"
+description: "Build a multi-turn conversational assistant that maintains context across messages."
+category: "text"
+difficulty: "advanced"
+models: ["gpt-4o", "claude-3-5-sonnet", "mistral-large"]
+tags: ["text", "chatbot", "conversation", "multi-turn", "memory"]
+estimatedCostPer1kTokens: 0.015
+---
+
+## What This Does
+
+Maintain a running conversation history and send it with every request so the model remembers what was said earlier in the session. This is the foundation of any chatbot — from customer support bots to coding assistants.
+
+### When to Use This
+
+- **Customer support**: answering follow-up questions in context ("what about the return policy?" after asking about a product)
+- **Coding assistants**: iterating on code across multiple messages without restating the full context
+- **Onboarding flows**: guided multi-step wizards where each answer informs the next question
+- **Personal assistants**: tasks that evolve over a session (planning a trip, drafting a document)
+
+### How It Compares to Single-Turn Prompting
+
+A single chat completion has no memory — each call is stateless. A conversational setup maintains a `messages` array that grows with each turn, giving the model full context of the exchange. The tradeoff is increasing token cost as the conversation grows.
+
+## Code
+
+### Python
+
+```python
+import openai
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+SYSTEM_PROMPT = """You are a helpful assistant. Be concise and friendly.
+If you don't know something, say so rather than guessing."""
+
+
+def chat(conversation_history: list, user_message: str) -> tuple[str, list]:
+    """
+    Send a user message, get a response, and return the updated history.
+    conversation_history: list of {"role": ..., "content": ...} dicts
+    Returns: (assistant_reply, updated_history)
+    """
+    conversation_history.append({"role": "user", "content": user_message})
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history,
+            max_tokens=1024,
+        )
+        reply = response.choices[0].message.content
+        conversation_history.append({"role": "assistant", "content": reply})
+        return reply, conversation_history
+    except openai.APIError as e:
+        print(f"API error: {e}")
+        return None, conversation_history
+
+
+# --- Example multi-turn session ---
+
+history = []
+
+reply, history = chat(history, "My name is Alex. I'm planning a trip to Japan.")
+print(f"Assistant: {reply}")
+# "That sounds exciting, Alex! Japan is a wonderful destination..."
+
+reply, history = chat(history, "What's the best time of year to go?")
+print(f"Assistant: {reply}")
+# "For Japan, spring (late March to early May) is especially popular..."
+
+reply, history = chat(history, "And what about my budget?")
+print(f"Assistant: {reply}")
+# "For a trip to Japan, Alex, a mid-range budget of around $100-150 per day..."
+# Note: the model remembers the user's name and trip destination from earlier turns
+
+
+# --- Managing context length ---
+
+def trim_history(history: list, max_turns: int = 20) -> list:
+    """Keep only the most recent N turns to control token cost."""
+    # Each turn = 2 messages (user + assistant)
+    return history[-(max_turns * 2):]
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+const SYSTEM_PROMPT = `You are a helpful assistant. Be concise and friendly.
+If you don't know something, say so rather than guessing.`;
+
+/**
+ * Send a user message within a conversation and get a reply.
+ * Mutates conversationHistory in place and returns the assistant's reply.
+ * @param {Array} conversationHistory - Array of {role, content} message objects.
+ * @param {string} userMessage - The new user message.
+ * @returns {Promise<string|null>} The assistant's reply.
+ */
+async function chat(conversationHistory, userMessage) {
+  conversationHistory.push({ role: "user", content: userMessage });
+
+  try {
+    const response = await client.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...conversationHistory,
+      ],
+      max_tokens: 1024,
+    });
+
+    const reply = response.choices[0].message.content;
+    conversationHistory.push({ role: "assistant", content: reply });
+    return reply;
+  } catch (error) {
+    console.error("API error:", error.message);
+    return null;
+  }
+}
+
+/** Keep only the most recent N turns to control token cost. */
+function trimHistory(history, maxTurns = 20) {
+  return history.slice(-(maxTurns * 2));
+}
+
+// --- Example multi-turn session ---
+
+const history = [];
+
+const reply1 = await chat(history, "My name is Alex. I'm planning a trip to Japan.");
+console.log("Assistant:", reply1);
+
+const reply2 = await chat(history, "What's the best time of year to go?");
+console.log("Assistant:", reply2);
+
+const reply3 = await chat(history, "And what about my budget?");
+console.log("Assistant:", reply3);
+// The model remembers the name and trip context from earlier turns
+```
+
+### curl
+
+```bash
+# Turn 1 — start the conversation
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [
+      { "role": "system", "content": "You are a helpful assistant." },
+      { "role": "user", "content": "My name is Alex. I am planning a trip to Japan." }
+    ]
+  }'
+
+# Turn 2 — append the assistant reply from turn 1, then add the next user message
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [
+      { "role": "system", "content": "You are a helpful assistant." },
+      { "role": "user", "content": "My name is Alex. I am planning a trip to Japan." },
+      { "role": "assistant", "content": "That sounds exciting, Alex! Japan is a wonderful destination..." },
+      { "role": "user", "content": "What is the best time of year to go?" }
+    ]
+  }'
+```
+
+### Expected API Response
+
+```json
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "For Japan, spring (late March to early May) is especially popular for cherry blossoms, Alex. Autumn (October–November) is also beautiful with fall foliage. Both seasons have mild weather and are great for sightseeing."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 142,
+    "completion_tokens": 54,
+    "total_tokens": 196
+  }
+}
+```
+
+## How It Works
+
+1. **The `messages` array is the memory**: every prior user and assistant turn is resent with each request — the model has no server-side memory, so the full history must be included each time
+2. **System prompt sets the persona**: the `system` role message at the start defines tone, constraints, and behavior for the entire session
+3. **Token cost grows linearly**: each turn adds tokens to the context; a 20-turn conversation sends roughly 20× the tokens of the first message
+4. **`finish_reason: "stop"`**: the model signals it has finished its reply naturally — watch for `"length"` which means it was cut off by `max_tokens`
+
+### Key Parameters
+
+| Parameter      | Value  | Why                                                                 |
+|----------------|--------|---------------------------------------------------------------------|
+| `max_tokens`   | 1024   | Caps reply length; prevents runaway verbose responses               |
+| `messages`     | array  | Full history including system prompt — this is the "memory"        |
+| `temperature`  | 0.7    | Default. Lower (0.2) for factual bots, higher (1.0) for creative ones |
+
+## Tips
+
+- **Trim history to control cost**: keep only the last N turns. Alternatively, summarize old turns into a single message: "Earlier in the conversation: [summary]"
+- **Persist history server-side**: store the `messages` array in a database or cache (keyed by session ID) so users can resume conversations across page loads
+- **Inject context dynamically**: add relevant facts to the system prompt at request time (user name, account tier, current page) without including them in the visible chat history
+- **Stream responses**: use `stream: true` to display tokens as they arrive — greatly improves perceived responsiveness for longer replies
+
+## Common Pitfalls
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Model "forgets" earlier messages | History not being passed | Ensure the full `messages` array is sent on every request |
+| Costs grow unbounded | No history trimming | Cap history at 20–30 turns or summarize old turns |
+| Model ignores system prompt | User message contradicts it | Reinforce key constraints in the system prompt; use `temperature: 0` for strict bots |
+| `finish_reason: "length"` | `max_tokens` too low | Increase `max_tokens` or detect this and ask the model to continue |
+| Context window exceeded | Very long conversation | Trim or summarize history before it exceeds the model's context limit |

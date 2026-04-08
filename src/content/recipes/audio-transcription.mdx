@@ -1,0 +1,221 @@
+---
+title: "Audio Transcription"
+slug: "audio-transcription"
+description: "Convert spoken audio into accurate text using a speech-to-text model."
+category: "audio"
+difficulty: "beginner"
+models: ["whisper-1"]
+tags: ["audio", "speech-to-text", "transcription", "whisper"]
+estimatedCostPer1kTokens: 0.006
+---
+
+## What This Does
+
+Send an audio file to a speech-to-text model and get back a verbatim transcript of the spoken content. This enables meeting notes, podcast indexing, voice command processing, and accessibility features like captions.
+
+### When to Use This
+
+- **Meeting notes**: auto-transcribing recorded calls or standups into searchable text
+- **Podcast/video indexing**: making audio content searchable by its words
+- **Accessibility**: generating captions or subtitles for spoken content
+- **Voice input**: capturing dictated content for further processing by an LLM
+- **Customer support**: transcribing call recordings for quality review or analytics
+
+### How It Compares to Traditional Approaches
+
+Rule-based speech recognition requires language-specific acoustic models and struggles with accents, background noise, and domain vocabulary. Whisper is a general-purpose model trained on a wide variety of audio that handles accents, mixed languages, and noisy recordings without any configuration.
+
+## Code
+
+### Python
+
+```python
+import openai
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+
+def transcribe_audio(file_path, language=None, prompt=None):
+    """
+    Transcribe an audio file using OpenAI Whisper.
+    Supports mp3, mp4, mpeg, mpga, m4a, wav, and webm formats.
+    Returns the transcript string.
+    """
+    try:
+        with open(file_path, "rb") as audio_file:
+            response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                language=language,   # Optional: ISO-639-1 code, e.g. "en", "fr"
+                prompt=prompt,       # Optional: context hint to improve accuracy
+            )
+        return response.text
+    except openai.APIError as e:
+        print(f"API error: {e}")
+        return None
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+        return None
+
+
+# --- Basic transcription ---
+
+transcript = transcribe_audio("meeting-recording.mp3")
+print(transcript)
+# Expected output:
+# "Good morning everyone. Let's start with a quick recap of last week's action items..."
+
+
+# --- With language hint (faster + more accurate for known language) ---
+
+transcript = transcribe_audio("interview.mp3", language="en")
+print(transcript)
+
+
+# --- With context prompt (improves accuracy for domain-specific words) ---
+
+transcript = transcribe_audio(
+    "tech-standup.mp3",
+    prompt="This is a software engineering standup. Topics include GitHub, pull requests, CI/CD, and Kubernetes.",
+)
+print(transcript)
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+import { createReadStream } from "fs";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+/**
+ * Transcribe an audio file using OpenAI Whisper.
+ * @param {Object} options
+ * @param {string} options.filePath - Path to the audio file.
+ * @param {string} [options.language] - ISO-639-1 language code (e.g. "en").
+ * @param {string} [options.prompt] - Context hint to improve transcription accuracy.
+ * @returns {Promise<string|null>} The transcript text.
+ */
+async function transcribeAudio({ filePath, language, prompt }) {
+  try {
+    const response = await client.audio.transcriptions.create({
+      model: "whisper-1",
+      file: createReadStream(filePath),
+      ...(language && { language }),
+      ...(prompt && { prompt }),
+    });
+    return response.text;
+  } catch (error) {
+    console.error("API error:", error.message);
+    return null;
+  }
+}
+
+// --- Basic transcription ---
+
+const transcript = await transcribeAudio({ filePath: "meeting-recording.mp3" });
+console.log(transcript);
+
+// --- With language hint ---
+
+const frenchTranscript = await transcribeAudio({
+  filePath: "interview-fr.mp3",
+  language: "fr",
+});
+console.log(frenchTranscript);
+
+// --- With context prompt ---
+
+const techTranscript = await transcribeAudio({
+  filePath: "tech-standup.mp3",
+  prompt: "This is a software engineering standup. Topics include GitHub, pull requests, CI/CD.",
+});
+console.log(techTranscript);
+```
+
+### curl
+
+```bash
+# Basic transcription
+curl https://api.openai.com/v1/audio/transcriptions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F model="whisper-1" \
+  -F file="@meeting-recording.mp3"
+
+# With language hint
+curl https://api.openai.com/v1/audio/transcriptions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F model="whisper-1" \
+  -F file="@interview.mp3" \
+  -F language="en"
+
+# With context prompt and verbose JSON response (includes segments + timestamps)
+curl https://api.openai.com/v1/audio/transcriptions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F model="whisper-1" \
+  -F file="@standup.mp3" \
+  -F prompt="Software engineering standup. GitHub, pull requests, CI/CD." \
+  -F response_format="verbose_json"
+```
+
+### Expected API Response
+
+```json
+{
+  "text": "Good morning everyone. Let's start with a quick recap of last week's action items. First, the authentication service migration is complete and deployed to staging..."
+}
+```
+
+With `response_format: "verbose_json"`:
+
+```json
+{
+  "task": "transcribe",
+  "language": "english",
+  "duration": 47.32,
+  "text": "Good morning everyone...",
+  "segments": [
+    {
+      "id": 0,
+      "start": 0.0,
+      "end": 3.4,
+      "text": " Good morning everyone.",
+      "avg_logprob": -0.21
+    }
+  ]
+}
+```
+
+## How It Works
+
+1. **Upload**: the audio file is sent as multipart form data to the Whisper endpoint
+2. **Acoustic model**: Whisper processes the raw audio waveform and produces a sequence of tokens representing the spoken words
+3. **Optional context**: the `prompt` parameter primes the model with vocabulary or context, reducing errors on proper nouns, acronyms, and domain terms
+4. **Language detection**: if `language` is omitted, Whisper auto-detects the language (slightly slower); providing it speeds up inference
+
+### Key Parameters
+
+| Parameter         | Value         | Why                                                          |
+|-------------------|---------------|--------------------------------------------------------------|
+| `model`           | whisper-1     | Only available Whisper model via the API                     |
+| `language`        | "en" (opt.)   | Skips language detection, improves speed and accuracy        |
+| `prompt`          | string (opt.) | Injects domain vocabulary — helps with names, acronyms, jargon |
+| `response_format` | "text" / "verbose_json" | `verbose_json` adds timestamps and segment data  |
+
+## Tips
+
+- **File size limit**: the API accepts files up to 25 MB. For longer recordings, split them into chunks using `pydub` (Python) or `ffmpeg`
+- **Use the `prompt` parameter**: for recordings with product names, technical terms, or speaker names, a short prompt like `"Speakers: Alice, Bob. Topics: Kubernetes, Terraform"` dramatically improves accuracy
+- **Timestamps for captions**: use `response_format: "verbose_json"` to get segment-level timestamps suitable for generating SRT subtitle files
+- **Post-process with an LLM**: raw transcripts lack punctuation formatting and speaker labels — pipe the transcript into a chat completion to clean it up, add speaker diarization hints, or extract action items
+
+## Common Pitfalls
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Poor accuracy on names/acronyms | No context provided | Use `prompt` with key terms |
+| File too large error | Recording > 25 MB | Split with `ffmpeg -i input.mp3 -f segment -segment_time 600 chunk_%03d.mp3` |
+| Wrong language detected | Auto-detection confused | Set `language` explicitly |
+| Transcript missing punctuation | Expected — Whisper output is sparse | Post-process with a chat completion: "Add punctuation and paragraph breaks to this transcript" |
+| Timestamps are off | Long silent gaps in audio | Pre-process audio to remove silence with `ffmpeg -af silenceremove` |

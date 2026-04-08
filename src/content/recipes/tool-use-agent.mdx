@@ -1,0 +1,365 @@
+---
+title: "Tool Use Agent"
+slug: "tool-use-agent"
+description: "Build an LLM agent that calls external tools to answer questions it can't solve from memory alone."
+category: "agents"
+difficulty: "advanced"
+models: ["gpt-4o", "claude-3-5-sonnet", "mistral-large"]
+tags: ["agents", "tool-use", "function-calling", "autonomous"]
+estimatedCostPer1kTokens: 0.015
+---
+
+## What This Does
+
+Give an LLM a set of callable tools (functions) and let it decide which to call, in what order, to answer a user query. The model reasons about which tool to invoke, inspects the result, and either calls another tool or returns a final answer — all in a loop until the task is complete.
+
+### When to Use This
+
+- **Live data lookups**: answering questions that require current information (weather, stock prices, database records)
+- **Multi-step workflows**: tasks that require chaining actions — search, then filter, then summarize
+- **Code execution**: letting the model run code, check output, and iterate
+- **API orchestration**: automating sequences of API calls based on natural language instructions
+- **Personal assistants**: calendar lookups, email drafting, task management via natural language
+
+### How It Compares to Simple Prompting
+
+A plain chat completion can only use information in its training data and context window. A tool-use agent can **act on the world** — query databases, call APIs, read files, run calculations — and incorporate real results into its reasoning before responding.
+
+## Code
+
+### Python
+
+```python
+import json
+import openai
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+# --- Define tools (functions the model can call) ---
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a given city.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "description": "The city name, e.g. 'Paris' or 'New York'.",
+                    }
+                },
+                "required": ["city"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Search the web and return a short summary of results for a query.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query.",
+                    }
+                },
+                "required": ["query"],
+            },
+        },
+    },
+]
+
+
+# --- Implement the actual tool functions ---
+
+def get_weather(city: str) -> dict:
+    # Replace with a real weather API call (e.g. OpenWeatherMap)
+    return {"city": city, "temperature": "18°C", "condition": "Partly cloudy"}
+
+
+def search_web(query: str) -> dict:
+    # Replace with a real search API call (e.g. Tavily, Serper, Bing)
+    return {"query": query, "results": f"Top results for '{query}': [placeholder summary]"}
+
+
+def dispatch_tool(name: str, arguments: dict) -> str:
+    """Route a tool call to the correct function and return the result as a string."""
+    if name == "get_weather":
+        result = get_weather(**arguments)
+    elif name == "search_web":
+        result = search_web(**arguments)
+    else:
+        result = {"error": f"Unknown tool: {name}"}
+    return json.dumps(result)
+
+
+# --- Agent loop ---
+
+def run_agent(user_message: str, max_iterations: int = 10) -> str:
+    """
+    Run the agent loop until the model produces a final answer
+    or max_iterations is reached.
+    """
+    messages = [{"role": "user", "content": user_message}]
+
+    for _ in range(max_iterations):
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+        )
+        message = response.choices[0].message
+
+        # If no tool calls, the model is done — return its answer
+        if not message.tool_calls:
+            return message.content
+
+        # Append the model's response (with tool calls) to the history
+        messages.append(message)
+
+        # Execute each requested tool and append results
+        for tool_call in message.tool_calls:
+            arguments = json.loads(tool_call.function.arguments)
+            result = dispatch_tool(tool_call.function.name, arguments)
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": result,
+            })
+
+    return "Max iterations reached without a final answer."
+
+
+# --- Run the agent ---
+
+answer = run_agent("What's the weather in Tokyo, and are there any major tech conferences there this week?")
+print(answer)
+# Expected output:
+# "The current weather in Tokyo is 18°C and partly cloudy.
+#  Regarding tech conferences this week, [search results summary]..."
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+// --- Tool definitions ---
+
+const tools = [
+  {
+    type: "function",
+    function: {
+      name: "get_weather",
+      description: "Get the current weather for a given city.",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string", description: "The city name, e.g. 'Paris'." },
+        },
+        required: ["city"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_web",
+      description: "Search the web and return a short summary of results.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "The search query." },
+        },
+        required: ["query"],
+      },
+    },
+  },
+];
+
+// --- Tool implementations ---
+
+function getWeather({ city }) {
+  // Replace with a real weather API call
+  return { city, temperature: "18°C", condition: "Partly cloudy" };
+}
+
+function searchWeb({ query }) {
+  // Replace with a real search API call
+  return { query, results: `Top results for '${query}': [placeholder summary]` };
+}
+
+function dispatchTool(name, args) {
+  if (name === "get_weather") return JSON.stringify(getWeather(args));
+  if (name === "search_web") return JSON.stringify(searchWeb(args));
+  return JSON.stringify({ error: `Unknown tool: ${name}` });
+}
+
+// --- Agent loop ---
+
+async function runAgent(userMessage, maxIterations = 10) {
+  const messages = [{ role: "user", content: userMessage }];
+
+  for (let i = 0; i < maxIterations; i++) {
+    const response = await client.chat.completions.create({
+      model: "gpt-4o",
+      messages,
+      tools,
+      tool_choice: "auto",
+    });
+
+    const message = response.choices[0].message;
+
+    if (!message.tool_calls || message.tool_calls.length === 0) {
+      return message.content;
+    }
+
+    messages.push(message);
+
+    for (const toolCall of message.tool_calls) {
+      const args = JSON.parse(toolCall.function.arguments);
+      const result = dispatchTool(toolCall.function.name, args);
+      messages.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: result,
+      });
+    }
+  }
+
+  return "Max iterations reached without a final answer.";
+}
+
+// --- Run ---
+
+const answer = await runAgent(
+  "What's the weather in Tokyo, and are there any major tech conferences there this week?"
+);
+console.log(answer);
+```
+
+### curl
+
+```bash
+# Step 1 — send the user message with tool definitions
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [
+      { "role": "user", "content": "What is the weather in Tokyo?" }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get the current weather for a city.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": { "type": "string" }
+            },
+            "required": ["city"]
+          }
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  }'
+
+# Step 2 — model responds with a tool_call; execute it, then send the result back:
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [
+      { "role": "user", "content": "What is the weather in Tokyo?" },
+      {
+        "role": "assistant",
+        "tool_calls": [{
+          "id": "call_abc123",
+          "type": "function",
+          "function": { "name": "get_weather", "arguments": "{\"city\": \"Tokyo\"}" }
+        }]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_abc123",
+        "content": "{\"city\": \"Tokyo\", \"temperature\": \"18C\", \"condition\": \"Partly cloudy\"}"
+      }
+    ],
+    "tools": [],
+    "tool_choice": "none"
+  }'
+```
+
+### Expected API Response (first turn — tool call)
+
+```json
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_abc123",
+            "type": "function",
+            "function": {
+              "name": "get_weather",
+              "arguments": "{\"city\": \"Tokyo\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ]
+}
+```
+
+## How It Works
+
+1. **Tool definitions**: you describe each tool as a JSON schema — name, description, and parameter types. The model uses these descriptions to decide when and how to call each tool
+2. **Model decides**: on each turn, the model either responds with a final answer (`finish_reason: "stop"`) or requests one or more tool calls (`finish_reason: "tool_calls"`)
+3. **You execute**: your code runs the tool with the model-provided arguments and appends the result as a `"role": "tool"` message
+4. **Loop continues**: the model receives the tool result and either calls another tool or produces the final answer
+5. **Guard with max_iterations**: always cap the loop to prevent runaway costs from bugs or adversarial inputs
+
+### Key Parameters
+
+| Parameter      | Value        | Why                                                              |
+|----------------|--------------|------------------------------------------------------------------|
+| `tool_choice`  | "auto"       | Model decides whether to call a tool. Use "required" to force a call |
+| `tools`        | array        | All tool definitions available in this turn                      |
+| `max_tokens`   | (default)    | Reasoning traces can be long — don't over-constrain             |
+
+## Tips
+
+- **Write clear tool descriptions**: the model picks tools based on their `description` field — be explicit about when a tool should and shouldn't be used
+- **Validate arguments**: the model can hallucinate argument values. Add validation in `dispatch_tool` before calling real APIs
+- **Log every tool call**: in production, log `tool_call_id`, arguments, and results for debugging and cost auditing
+- **Parallel tool calls**: GPT-4o can request multiple tool calls in a single turn — your loop must handle `message.tool_calls` as an array, not a single call
+- **Limit tool scope**: expose only the tools needed for the task. A large tool list increases token cost and the chance of the model choosing the wrong one
+
+## Common Pitfalls
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Infinite loop | Model keeps calling tools without converging | Add `max_iterations` guard; check tool results are meaningful |
+| Hallucinated arguments | Model invents values for required params | Validate inputs before calling APIs; add enum constraints to schemas |
+| High cost | Long reasoning traces + many tool calls | Reduce tool list, use a smaller model for simple sub-tasks |
+| Tool result ignored | Result not appended correctly | Ensure `tool_call_id` in tool message matches the call's id exactly |
+| Model won't use tools | Description is too vague | Rewrite the `description` to be specific about when to invoke the tool |

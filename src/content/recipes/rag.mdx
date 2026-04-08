@@ -1,0 +1,312 @@
+---
+title: "RAG (Retrieval-Augmented Generation)"
+slug: "rag"
+description: "Answer questions grounded in your own documents by combining vector search with an LLM."
+category: "data"
+difficulty: "advanced"
+models: ["gpt-4o", "claude-3-5-sonnet"]
+tags: ["data", "rag", "retrieval", "embeddings", "vector-search", "knowledge-base"]
+estimatedCostPer1kTokens: 0.02
+---
+
+## What This Does
+
+Split your documents into chunks, embed them as vectors, store them in a vector database, then at query time retrieve the most relevant chunks and pass them as context to an LLM. The model answers using the retrieved content rather than relying solely on its training data.
+
+### When to Use This
+
+- **Internal knowledge bases**: answering questions about company wikis, policy docs, or runbooks
+- **Customer support**: grounding responses in product documentation and FAQs
+- **Legal / compliance**: querying contracts or regulations without hallucination risk
+- **Research assistants**: letting users ask questions across a large corpus of papers or reports
+- **Code documentation**: answering questions about a private codebase the model has never seen
+
+### How It Compares to Fine-tuning
+
+Fine-tuning bakes knowledge into model weights — expensive, slow, and stale the moment documents change. RAG keeps knowledge external and updatable: add a new document, re-embed it, and the model can answer questions about it immediately, with no retraining.
+
+## Code
+
+### Python
+
+```python
+import openai
+
+client = openai.OpenAI(api_key="YOUR_API_KEY")
+
+# --- Step 1: Embed documents (run once, or when documents change) ---
+
+def embed(text: str) -> list[float]:
+    """Return the embedding vector for a piece of text."""
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text,
+    )
+    return response.data[0].embedding
+
+
+def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
+    """Split text into overlapping chunks of ~chunk_size characters."""
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap
+    return chunks
+
+
+# Example: index a document
+documents = [
+    "Our return policy allows returns within 30 days of purchase with a receipt. Items must be unused and in original packaging.",
+    "Shipping is free on orders over $50. Standard delivery takes 3-5 business days. Express delivery (1-2 days) costs $12.99.",
+    "To contact support, email support@example.com or call 1-800-555-0100 between 9am and 6pm EST, Monday to Friday.",
+]
+
+# In production, store these in a vector DB (Pinecone, Weaviate, pgvector, etc.)
+# Here we use a simple in-memory list for demonstration.
+index = [{"text": doc, "embedding": embed(doc)} for doc in documents]
+
+
+# --- Step 2: Retrieve relevant chunks at query time ---
+
+import math
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x ** 2 for x in a))
+    norm_b = math.sqrt(sum(x ** 2 for x in b))
+    return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0
+
+
+def retrieve(query: str, top_k: int = 3) -> list[str]:
+    """Return the top_k most relevant chunks for a query."""
+    query_embedding = embed(query)
+    scored = [
+        (cosine_similarity(query_embedding, item["embedding"]), item["text"])
+        for item in index
+    ]
+    scored.sort(reverse=True)
+    return [text for _, text in scored[:top_k]]
+
+
+# --- Step 3: Generate an answer grounded in retrieved context ---
+
+def ask(question: str) -> str:
+    """Retrieve relevant context and generate a grounded answer."""
+    context_chunks = retrieve(question, top_k=3)
+    context = "\n\n".join(context_chunks)
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful assistant. Answer the user's question using ONLY "
+                        "the provided context. If the answer is not in the context, say "
+                        "'I don't have that information.'"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Context:\n{context}\n\nQuestion: {question}",
+                },
+            ],
+            max_tokens=512,
+        )
+        return response.choices[0].message.content
+    except openai.APIError as e:
+        print(f"API error: {e}")
+        return None
+
+
+# --- Run it ---
+
+print(ask("Can I return something I bought two weeks ago?"))
+# "Yes, our return policy allows returns within 30 days of purchase with a receipt,
+#  as long as items are unused and in original packaging."
+
+print(ask("How much does express shipping cost?"))
+# "Express delivery (1-2 days) costs $12.99."
+
+print(ask("Do you sell gift cards?"))
+# "I don't have that information."
+```
+
+### Node.js
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "YOUR_API_KEY" });
+
+// --- Embed a piece of text ---
+
+async function embed(text) {
+  const response = await client.embeddings.create({
+    model: "text-embedding-3-small",
+    input: text,
+  });
+  return response.data[0].embedding;
+}
+
+// --- Cosine similarity ---
+
+function cosineSimilarity(a, b) {
+  const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
+  const normA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+  const normB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+  return normA && normB ? dot / (normA * normB) : 0;
+}
+
+// --- Build in-memory index ---
+
+const documents = [
+  "Our return policy allows returns within 30 days of purchase with a receipt. Items must be unused and in original packaging.",
+  "Shipping is free on orders over $50. Standard delivery takes 3-5 business days. Express delivery (1-2 days) costs $12.99.",
+  "To contact support, email support@example.com or call 1-800-555-0100 between 9am and 6pm EST, Monday to Friday.",
+];
+
+// In production, use a vector DB (Pinecone, Weaviate, pgvector, etc.)
+const index = await Promise.all(
+  documents.map(async (text) => ({ text, embedding: await embed(text) }))
+);
+
+// --- Retrieve top-k relevant chunks ---
+
+async function retrieve(query, topK = 3) {
+  const queryEmbedding = await embed(query);
+  return index
+    .map((item) => ({ text: item.text, score: cosineSimilarity(queryEmbedding, item.embedding) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK)
+    .map((item) => item.text);
+}
+
+// --- Generate grounded answer ---
+
+async function ask(question) {
+  const chunks = await retrieve(question, 3);
+  const context = chunks.join("\n\n");
+
+  try {
+    const response = await client.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a helpful assistant. Answer using ONLY the provided context. " +
+            "If the answer is not in the context, say 'I don't have that information.'",
+        },
+        {
+          role: "user",
+          content: `Context:\n${context}\n\nQuestion: ${question}`,
+        },
+      ],
+      max_tokens: 512,
+    });
+    return response.choices[0].message.content;
+  } catch (error) {
+    console.error("API error:", error.message);
+    return null;
+  }
+}
+
+// --- Run ---
+
+console.log(await ask("Can I return something I bought two weeks ago?"));
+console.log(await ask("How much does express shipping cost?"));
+console.log(await ask("Do you sell gift cards?"));
+```
+
+### curl
+
+```bash
+# Step 1 — embed a document chunk
+curl https://api.openai.com/v1/embeddings \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "text-embedding-3-small",
+    "input": "Our return policy allows returns within 30 days with a receipt."
+  }'
+
+# Step 2 — after retrieving relevant chunks via your vector DB,
+# generate a grounded answer
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "role": "system",
+        "content": "Answer using ONLY the provided context. If the answer is not in the context, say I dont have that information."
+      },
+      {
+        "role": "user",
+        "content": "Context:\nOur return policy allows returns within 30 days of purchase with a receipt. Items must be unused and in original packaging.\n\nQuestion: Can I return something I bought two weeks ago?"
+      }
+    ],
+    "max_tokens": 512
+  }'
+```
+
+### Expected API Response
+
+```json
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "Yes, you can return your purchase. Our return policy allows returns within 30 days of purchase with a receipt, as long as items are unused and in their original packaging. Since two weeks is within that window, you're eligible."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 98,
+    "completion_tokens": 47,
+    "total_tokens": 145
+  }
+}
+```
+
+## How It Works
+
+1. **Chunking**: documents are split into overlapping chunks (typically 300–1000 characters). Overlap prevents context from being cut off at chunk boundaries
+2. **Embedding**: each chunk is converted into a high-dimensional vector that captures its semantic meaning using an embedding model (`text-embedding-3-small`)
+3. **Storage**: embeddings are stored in a vector database. For production, use Pinecone, Weaviate, Qdrant, or pgvector (Postgres extension)
+4. **Retrieval**: at query time, the question is embedded and compared to all stored chunks using cosine similarity. The top-k most similar chunks are returned
+5. **Generation**: the retrieved chunks are injected into the LLM prompt as context, and the model answers based only on that content
+
+### Key Parameters
+
+| Parameter          | Value                    | Why                                                         |
+|--------------------|--------------------------|-------------------------------------------------------------|
+| Embedding model    | text-embedding-3-small   | Fast and cheap; use `text-embedding-3-large` for better recall |
+| Chunk size         | 500 chars / ~100 tokens  | Small enough to be specific, large enough to have context   |
+| Overlap            | 50–100 chars             | Prevents important content from being split across chunks   |
+| top_k              | 3–5                      | More chunks = more context but higher token cost            |
+
+## Tips
+
+- **Use a real vector DB in production**: in-memory cosine search doesn't scale past a few hundred documents. Pinecone, Qdrant, and pgvector all have free tiers
+- **Chunk by semantic unit**: split on paragraph or sentence boundaries rather than fixed character counts — chunks that end mid-sentence lose context
+- **Add metadata to chunks**: store the source document name, page number, or URL alongside each embedding so you can cite sources in answers
+- **Instruct the model to cite**: add "Cite the relevant part of the context in your answer" to the system prompt to get attributable, verifiable responses
+- **Re-rank retrieved chunks**: use a cross-encoder reranker (e.g. Cohere Rerank) after vector search to improve precision before passing to the LLM
+
+## Common Pitfalls
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Model answers from training data, not context | System prompt too weak | Explicitly say "Answer ONLY from the context below. Do not use outside knowledge." |
+| Relevant chunk not retrieved | Chunk too large or too small | Experiment with chunk sizes; try 256–512 tokens |
+| Hallucinated citations | Model invents source names | Don't ask for citations unless metadata is included in the context |
+| High embedding costs at scale | Re-embedding unchanged docs | Only re-embed changed or new documents; cache embeddings |
+| Slow retrieval | Linear scan over large index | Switch to a proper vector DB with ANN (approximate nearest neighbor) indexing |
