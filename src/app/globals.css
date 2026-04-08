@@ -3,20 +3,16 @@
 @tailwind utilities;
 
 :root {
-
-  --primary: #2563EB;
-  --slate-gray-: #64748B;
-  --light-gray: #E5E7EB;
+  --primary: #2563eb;
+  --slate-gray-: #64748b;
+  --light-gray: #e5e7eb;
   --dark-gray: #464646;
 }
 
-
-.link-gray{
-  @apply text-[#64748B] p-2 px-3 font-medium ;
+.link-gray {
+  @apply text-[#64748B] p-2 px-3 font-medium rounded-md;
 }
 
 .link-gray:hover {
-  @apply bg-[#2563EB] text-white p-2 px-3 font-medium rounded-xl;
+  @apply bg-[#2563EB] text-white;
 }
-
-
