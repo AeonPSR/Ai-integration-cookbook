@@ -1,41 +1,91 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CATEGORIES } from "@/lib/categories";
 import RecipeCard from "@/components/RecipeCard";
 import SearchFilter from "@/components/SearchFilter";
 
+const PARAM_KEY_MAP = {
+  q: "search",
+  category: "selectedCategory",
+  difficulty: "selectedDifficulty",
+  model: "selectedModel",
+};
+
+function readFiltersFromSearchParams(searchParams) {
+  return {
+    search: searchParams.get("q") || "",
+    selectedCategory: searchParams.get("category") || "",
+    selectedDifficulty: searchParams.get("difficulty") || "",
+    selectedModel: searchParams.get("model") || "",
+  };
+}
+
+function buildFilterQueryString(filters) {
+  const params = new URLSearchParams();
+
+  if (filters.search) params.set("q", filters.search);
+  if (filters.selectedCategory) params.set("category", filters.selectedCategory);
+  if (filters.selectedDifficulty) params.set("difficulty", filters.selectedDifficulty);
+  if (filters.selectedModel) params.set("model", filters.selectedModel);
+
+  return params.toString();
+}
+
+function areFiltersEqual(left, right) {
+  return (
+    left.search === right.search &&
+    left.selectedCategory === right.selectedCategory &&
+    left.selectedDifficulty === right.selectedDifficulty &&
+    left.selectedModel === right.selectedModel
+  );
+}
+
 export default function Home({ recipes }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const [filters, setFilters] = useState(() => readFiltersFromSearchParams(searchParams));
+
   const allModels = useMemo(
-    () => [...new Set(recipes.flatMap((recipe) => recipe.models))].sort(),
+    () => [...new Set(recipes.flatMap((recipe) => recipe.models || []))].sort(),
     [recipes]
   );
 
-  const search = searchParams.get("q") || "";
-  const selectedCategory = searchParams.get("category") || "";
-  const selectedDifficulty = searchParams.get("difficulty") || "";
-  const selectedModel = searchParams.get("model") || "";
+  const { search, selectedCategory, selectedDifficulty, selectedModel } = filters;
 
-  const setParam = useCallback(
-    (key, value) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (value) {
-        params.set(key, value);
-      } else {
-        params.delete(key);
-      }
-      router.replace(`?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams]
-  );
+  useEffect(() => {
+    const fromUrl = readFiltersFromSearchParams(searchParams);
+    setFilters((current) => (areFiltersEqual(current, fromUrl) ? current : fromUrl));
+  }, [searchParams]);
+
+  useEffect(() => {
+    const nextQuery = buildFilterQueryString(filters);
+    const currentQuery = searchParams.toString();
+
+    if (nextQuery === currentQuery) return;
+
+    const href = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+    router.replace(href, { scroll: false });
+  }, [filters, pathname, router, searchParams]);
+
+  const setParam = useCallback((key, value) => {
+    setFilters((current) => ({
+      ...current,
+      [PARAM_KEY_MAP[key]]: value,
+    }));
+  }, []);
 
   const clearFilters = useCallback(() => {
-    router.replace("/", { scroll: false });
-  }, [router]);
+    setFilters({
+      search: "",
+      selectedCategory: "",
+      selectedDifficulty: "",
+      selectedModel: "",
+    });
+  }, []);
 
   const filteredRecipes = useMemo(() => {
     const query = search.toLowerCase();
@@ -43,10 +93,11 @@ export default function Home({ recipes }) {
     return recipes.filter((recipe) => {
       if (selectedCategory && recipe.category !== selectedCategory) return false;
       if (selectedDifficulty && recipe.difficulty !== selectedDifficulty) return false;
-      if (selectedModel && !recipe.models.includes(selectedModel)) return false;
+      if (selectedModel && !(recipe.models || []).includes(selectedModel)) return false;
 
       if (query) {
-        const haystack = `${recipe.title} ${recipe.description} ${recipe.tags.join(" ")}`.toLowerCase();
+        const tags = Array.isArray(recipe.tags) ? recipe.tags.join(" ") : "";
+        const haystack = `${recipe.title} ${recipe.description} ${tags}`.toLowerCase();
         if (!haystack.includes(query)) return false;
       }
 
