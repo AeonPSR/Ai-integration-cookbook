@@ -1,21 +1,17 @@
-import { notFound } from "next/navigation";
+import { getRecipes } from "@/lib/recipes";
 import { getCategoryById } from "@/lib/categories";
-import { getRecipeBySlug, getRecipeSlugs } from "@/lib/mdx";
+import { getRecipeBySlug } from "@/lib/mdx";
+import CodeBlockEnhancer from "@/components/CodeBlockEnhancer";
 
 export function generateStaticParams() {
-  return getRecipeSlugs().map((slug) => ({ slug }));
+  return getRecipes().map((r) => ({ slug: r.slug }));
 }
 
 export default async function RecipePage({ params }) {
   const { slug } = await params;
-  const recipe = await getRecipeBySlug(slug);
-
-  if (!recipe) {
-    notFound();
-  }
-
-  const { frontmatter, html } = recipe;
-  const category = getCategoryById(frontmatter.category);
+  const recipe = getRecipes().find((r) => r.slug === slug);
+  const category = recipe ? getCategoryById(recipe.category) : null;
+  const mdx = await getRecipeBySlug(slug);
 
   return (
     <div>
@@ -28,18 +24,26 @@ export default async function RecipePage({ params }) {
           </>
         )}
         <span className="mx-1">/</span>
-        <span>{frontmatter.title}</span>
+        <span>{recipe ? recipe.title : slug}</span>
       </nav>
 
-      <h1 className="mb-2 text-3xl font-bold">{frontmatter.title}</h1>
-      {frontmatter.description && (
-        <p className="mb-6 text-gray-500">{frontmatter.description}</p>
+      <h1 className="mb-2 text-3xl font-bold">{recipe ? recipe.title : slug}</h1>
+      {recipe && (
+        <p className="mb-6 text-gray-500">{recipe.description}</p>
       )}
 
-      <article
-        className="prose prose-gray max-w-none prose-headings:scroll-mt-20 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-gray-900 prose-pre:text-gray-100"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      {mdx ? (
+        <>
+          <article
+            data-recipe-content
+            className="prose prose-gray max-w-none prose-headings:scroll-mt-20 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-gray-900 prose-pre:text-gray-100"
+            dangerouslySetInnerHTML={{ __html: mdx.html }}
+          />
+          <CodeBlockEnhancer />
+        </>
+      ) : (
+        <p className="text-gray-400 italic">Recipe content coming soon.</p>
+      )}
     </div>
   );
 }
