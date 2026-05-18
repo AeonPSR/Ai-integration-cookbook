@@ -1,12 +1,12 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkRehype from "remark-rehype";
-import rehypeStringify from "rehype-stringify";
 import rehypeHighlight from "rehype-highlight";
+import rehypeStringify from "rehype-stringify";
+import remarkGfm from "remark-gfm";
+import remarkParse from "remark-parse";
+import remarkRehype from "remark-rehype";
+import { unified } from "unified";
 
 const recipesDir = path.join(process.cwd(), "src", "content", "recipes");
 
@@ -48,7 +48,7 @@ export function getRecipeSlugs() {
 }
 
 /**
- * Recipe index built from MDX frontmatter (no HTML rendering).
+ * Recipe index built from MDX frontmatter.
  */
 export function getAllRecipes() {
   return getMdxFileNames()
@@ -57,8 +57,7 @@ export function getAllRecipes() {
 }
 
 /**
- * Load a recipe MDX file by slug.
- * Returns { frontmatter, html } where html is the rendered content.
+ * Load a recipe MDX file by slug and render its content to HTML.
  */
 export async function getRecipeBySlug(slug) {
   const filePath = path.join(recipesDir, `${slug}.mdx`);
