@@ -12,7 +12,21 @@ const LANGUAGE_LABELS = {
   python: "Python",
 };
 
-// Convertit les noms techniques des langages en libelles affiches.
+/**
+ * CodeBlock affiche un ou plusieurs exemples de code.
+ *
+ * Props:
+ * - code: texte d'un seul bloc de code.
+ * - language: langage du bloc simple, par exemple "python".
+ * - snippets: liste optionnelle pour afficher plusieurs onglets.
+ * - showLineNumbers: affiche les numeros de lignes au chargement.
+ *
+ * Exemple de snippets:
+ * [
+ *   { language: "python", code: "print('Hello')" },
+ *   { language: "javascript", code: "console.log('Hello')" }
+ * ]
+ */
 function languageLabel(language = "text") {
   return LANGUAGE_LABELS[language] || language.toUpperCase();
 }
@@ -23,19 +37,22 @@ export default function CodeBlock({
   snippets,
   showLineNumbers = false,
 }) {
+  // Le composant travaille toujours avec une liste, meme pour un seul bloc.
   const items = useMemo(() => {
     if (snippets?.length) return snippets;
     return [{ code, language }];
   }, [code, language, snippets]);
 
+  // Etats de l'interface: onglet actif, numeros de lignes et feedback copy.
   const [activeIndex, setActiveIndex] = useState(0);
   const [lineNumbers, setLineNumbers] = useState(showLineNumbers);
   const [copied, setCopied] = useState(false);
 
+  // Bloc actuellement visible dans l'interface.
   const active = items[activeIndex] || items[0];
   const lines = active.code.split("\n");
 
-  // Copie le code selectionne et affiche brievement le succes.
+  // Copie le code de l'onglet actif dans le presse-papiers.
   async function copyCode() {
     await navigator.clipboard.writeText(active.code);
     setCopied(true);
